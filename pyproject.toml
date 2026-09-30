@@ -1,0 +1,23 @@
+[project]
+name = "agent2agent"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "a2a-sdk[http-server]==0.3.26",
+    "anthropic[vertex]>=1.9.0",
+    "beeai-framework[a2a]>=0.1.62",
+    "ddgs>=9.16.0",
+    "google-adk[a2a]>=2.10.0",
+    "ipython>=9.17.1",
+    "langchain>=1.4.3",
+    "langchain-anthropic>=1.7.5",
+    "langchain-mcp-adapters>=0.3.2",
+    "langchain-ollama>=1.1.0",
+    "litellm>=1.103.1",
+    "ollama>=0.6.3",
+    "pymupdf>=1.28.2",
+    "python-dotenv>=1.2.3",
+    "uvicorn>=0.37.0,<0.38.0",
+]

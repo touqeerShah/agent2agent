@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
-from helpers import authenticate
+
+# from helpers import authenticate
 from typing import Any
 import asyncio
 import os
@@ -10,6 +11,9 @@ from beeai_framework.agents.requirement import RequirementAgent
 from beeai_framework.agents.requirement.requirements.conditional import (
     ConditionalRequirement,
 )
+from beeai_framework.adapters.ollama import OllamaChatModel
+from beeai_framework.adapters.vertexai import VertexAIChatModel
+
 from beeai_framework.memory import UnconstrainedMemory
 from beeai_framework.memory.unconstrained_memory import UnconstrainedMemory
 from beeai_framework.middleware.trajectory import EventMeta, GlobalTrajectoryMiddleware
@@ -28,10 +32,10 @@ class ConciseGlobalTrajectoryMiddleware(GlobalTrajectoryMiddleware):
         return ""
 
 
-def main():
+def HealthCareAgent():
     print(f"Running A2A Orchestrator Agent")
     load_dotenv()
-    _, project_id = authenticate()
+    # _, project_id = authenticate()
 
     host = os.environ.get("AGENT_HOST")
     policy_agent_port = os.environ.get("POLICY_AGENT_PORT")
@@ -40,8 +44,11 @@ def main():
     healthcare_agent_port = int(os.environ.get("HEALTHCARE_AGENT_PORT"))
 
     # Log only tool calls
-    GlobalTrajectoryMiddleware(target=[Tool])
-
+    middlewares = (
+        [
+            GlobalTrajectoryMiddleware(included=[Tool]),
+        ],
+    )
     policy_agent = A2AAgent(
         url=f"http://{host}:{policy_agent_port}", memory=UnconstrainedMemory()
     )
@@ -60,42 +67,57 @@ def main():
     )
     asyncio.run(provider_agent.check_agent_exists())
     print("\tℹ️", f"{provider_agent.name} initialized")
+    is_local = os.getenv("IS_LOCAL", "false").strip().lower() in {"true", "1", "yes"}
 
-    healthcare_agent = RequirementAgent(
-        name="Healthcare Agent",
-        description="A personal concierge for Healthcare Information, customized to your policy.",
-        llm=VertexAIChatModel(
-            model_id="gemini-2.5-flash",
+    if is_local:
+        llm = OllamaChatModel(os.getenv("OLLAMA_MODEL", "qwen2.5:7b-instruct"))
+        llm.parameters.temperature = 0
+    else:
+        from helpers import authenticate
+
+        _, project_id = authenticate()
+
+        llm = VertexAIChatModel(
+            model_id=os.getenv("VERTEX_MODEL", "gemini-2.5-flash"),
             project=project_id,
             location="global",
             allow_parallel_tool_calls=True,
             settings={
-                "api_base": f"{os.getenv('GOOGLE_VERTEX_BASE_URL')}",
+                "api_base": os.getenv("GOOGLE_VERTEX_BASE_URL"),
                 "use_psc_endpoint_format": True,
             },
-        ),
+        )
+    healthcare_agent = RequirementAgent(
+        name="Healthcare Agent",
+        description="A personal concierge for Healthcare Information, customized to your policy.",
+        llm=llm,
         tools=[
             thinktool := ThinkTool(),
             policy_tool := HandoffTool(
                 target=policy_agent,
-                name=policy_agent.name,
+                # name=policy_agent.name,
+                name="policy_lookup",
                 description=policy_agent.agent_card.description,
             ),
             research_tool := HandoffTool(
                 target=research_agent,
-                name=research_agent.name,
+                # name=research_agent.name,
+                name="research_lookup",
                 description=research_agent.agent_card.description,
             ),
             provider_tool := HandoffTool(
                 target=provider_agent,
-                name=provider_agent.name,
+                # name=provider_agent.name,
+                name="provider_lookup",
                 description=provider_agent.agent_card.description,
             ),
         ],
         requirements=[
-            ConditionalRequirement(policy_tool, consecutive_allowed=False),
             ConditionalRequirement(
-                thinktool, force_at_step=1, force_after=Tool, consecutive_allowed=False
+                policy_tool.name, consecutive_allowed=False  # String; matches by name
+            ),
+            ConditionalRequirement(
+                ThinkTool, force_at_step=1, force_after=Tool, consecutive_allowed=False
             ),
         ],
         role="Healthcare Concierge",
@@ -110,3 +132,20 @@ def main():
     )
 
     print("\tℹ️", f"{healthcare_agent.meta.name} initialized")
+    from importlib.metadata import version
+
+    async def check_registration():
+        print("Loaded file:", __file__, flush=True)
+        print("BeeAI version:", version("beeai-framework"), flush=True)
+
+        original_names = [t.name for t in healthcare_agent.meta.tools]
+        copied_agent = await healthcare_agent.clone()
+        copied_names = [t.name for t in copied_agent.meta.tools]
+
+        print("Original tools:", original_names, flush=True)
+        print("Copied tools:", copied_names, flush=True)
+
+        assert policy_tool.name in original_names, "Policy tool missing before cloning"
+        assert policy_tool.name in copied_names, "Policy tool missing after cloning"
+    asyncio.run(check_registration())
+    return healthcare_agent

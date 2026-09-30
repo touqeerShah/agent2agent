@@ -7,8 +7,8 @@ from mcp.server.fastmcp import FastMCP
 mcp = FastMCP("doctorserver")
 
 # Load Data
-doctors: list = json.loads(Path("../data/doctors.json").read_text())
-
+data_path = Path(__file__).resolve().parents[1] / "data" / "doctors.json"
+doctors: list = json.loads(data_path.read_text(encoding="utf-8"))
 
 @mcp.tool()
 def list_doctors(state: str | None = None, city: str | None = None) -> list[dict]:

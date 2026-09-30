@@ -14,7 +14,7 @@ from a2a.types import (
 )
 from a2a.utils import new_agent_text_message
 
-from agents import PolicyAgent
+from agents.PolicyAgent import PolicyAgent
 
 
 class PolicyAgentExecutor(AgentExecutor):

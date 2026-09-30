@@ -6,7 +6,7 @@ from agents.HealthCareAgent import HealthCareAgent
 from beeai_framework.serve.utils import LRUMemoryManager
 
 
-def main():
+def orchestratorAgent():
     print(f"Running A2A Orchestrator Agent")
     load_dotenv()
     host = os.environ.get("AGENT_HOST")
@@ -23,4 +23,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    orchestratorAgent()

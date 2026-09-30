@@ -7,3 +7,4 @@ prompt = "How much would I pay for mental health therapy?"
 
 response = agent.answer_query(prompt)
 display(Markdown(response))
+print(response)
